@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "skydrunk",
+  "version": "${version}",
+  "name": "Skydrunk",
+  "description": "SkyBlock QoL: hunting shard tracking, Crystal Hollows info, and more.",
+  "authors": ["Makogai"],
+  "license": "MIT",
+  "icon": "assets/skydrunk/icon.png",
+  "environment": "*",
+  "mixins": [
+    "mixins.skydrunk.json"
+  ],
+  "entrypoints": {
+    "main":   ["me.makogai.skydrunk.Skydrunk"],
+    "client": ["me.makogai.skydrunk.client.SkydrunkClient"],
+    "modmenu": ["me.makogai.skydrunk.config.MenuEntrypoint"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": ">=1.21.5",
+    "fabric-api": "*",
+    "fabric-language-kotlin": "*",
+    "modmenu": "*",
+    "cloth-config2": "*"
+  }
+}

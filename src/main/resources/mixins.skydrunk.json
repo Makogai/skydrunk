@@ -1,0 +1,11 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "me.makogai.skydrunk.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "mixins.skydrunk.refmap.json",
+  "client": [
+    "PlayerListHudMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}
