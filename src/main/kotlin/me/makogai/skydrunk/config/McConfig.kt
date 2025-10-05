@@ -94,22 +94,23 @@ class DungeonsCat : Config() {
 class MainCat : Config() {
 
     @ConfigOption(
-        name = "Skydrunk — Status",
-        desc = "Read-only information panel"
-    )
-    @ConfigEditorInfoText(infoTitle = "Welcome to Skydrunk")
-    var info: String =
-        """
+        name = "Welcome to Skydrunk",
+        desc = """
         ✅ Currently functional: Shard Tracking (Hunting > Shard Tracking)
 
         • Auto price updates, per-session stats, overlay & tracker.
-        • More features are in development. 
+        • More features are in development.
         • If something breaks after updates, try toggling 'Enable Skydrunk' in General.
 
-        Tip: Use Overlay to move/scale the tracker HUD. 
-        Tip: Use /sd price use-sell/use-buy to toggle between insta sell and sell order 
-        """.trimIndent()
+        Tips:
+        • Use Overlay to move/scale the tracker HUD.
+        • Use /sd price use-sell or /sd price use-buy to switch between Insta-Sell and Sell Order.
+        """,
+    )
+    @ConfigEditorInfoText
+    var info: String = ""
 }
+
 
 
 /* --------- ROOT: categories live on fields here --------- */
