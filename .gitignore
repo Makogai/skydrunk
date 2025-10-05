@@ -7,6 +7,7 @@ out/
 !gradle/wrapper/gradle-wrapper.jar
 run
 .idea
+*.hprof
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml
