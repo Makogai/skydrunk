@@ -104,9 +104,11 @@ class SkydrunkClient : ClientModInitializer {
                             })
                         )
                         .then(literal("vmedit").executes {
-                            me.makogai.skydrunk.viewmodel.ViewmodelEditor.open()
+                            val mc = MinecraftClient.getInstance()
+                            mc.execute { me.makogai.skydrunk.viewmodel.ViewmodelEditor.open() }
                             1
                         })
+
 
 
                         .then(literal("overlay")
