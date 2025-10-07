@@ -2,11 +2,12 @@ plugins {
     id("fabric-loom") version "1.10.1"
     kotlin("jvm") version "2.0.21"
     kotlin("plugin.serialization") version "2.0.21"
+
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "me.makogai"
-version = "0.1.0"
+version = "0.1.10"
 
 repositories {
     maven("https://maven.fabricmc.net/")
@@ -41,6 +42,7 @@ loom {
     runConfigs.named("client") {
         programArgs("--username", "MakogaiDev")
     }
+    mixin.defaultRefmapName.set("mixins.skydrunk.refmap.json")
 }
 
 tasks.processResources {

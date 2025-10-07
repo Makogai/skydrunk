@@ -5,7 +5,8 @@
   "compatibilityLevel": "JAVA_21",
   "refmap": "mixins.skydrunk.refmap.json",
   "client": [
-    "PlayerListHudMixin"
+    "HeldItemRendererMixin",
+    "LivingEntityMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }
