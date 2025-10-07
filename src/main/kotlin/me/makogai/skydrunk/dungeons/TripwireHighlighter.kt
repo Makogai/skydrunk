@@ -5,125 +5,82 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.minecraft.block.Blocks
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.render.RenderLayer
-import net.minecraft.client.render.VertexConsumer
+import net.minecraft.client.render.VertexConsumerProvider
+import net.minecraft.client.render.VertexRendering
+import net.minecraft.client.render.debug.DebugRenderer
+import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Box
 import net.minecraft.util.math.MathHelper
-import com.mojang.blaze3d.systems.RenderSystem
 
 object TripwireHighlighter {
 
     fun init() {
-        WorldRenderEvents.AFTER_ENTITIES.register(WorldRenderEvents.AfterEntities { context ->
+        WorldRenderEvents.AFTER_ENTITIES.register { context ->
             val cfg = McManaged.data().dungeons
-            if (!cfg.highlightTripwire /* || true */) return@AfterEntities
+            if (!cfg.highlightTripwire) return@register
 
-            val mc = MinecraftClient.getInstance() ?: return@AfterEntities
-            val world = mc.world ?: return@AfterEntities
-            val player = mc.player ?: return@AfterEntities
 
-            val camera = context.camera() ?: return@AfterEntities
-            val matrices = context.matrixStack() ?: return@AfterEntities
-            val consumers = context.consumers() ?: return@AfterEntities
+            val mc = MinecraftClient.getInstance()
+            val world = mc.world ?: return@register
+            val player = mc.player ?: return@register
 
-            val range = MathHelper.floor(cfg.tripwireRange.coerceIn(4f, 64f).toDouble()).coerceAtLeast(1)
-            val px = MathHelper.floor(player.x)
-            val py = MathHelper.floor(player.y)
-            val pz = MathHelper.floor(player.z)
+            val matrices: MatrixStack = context.matrixStack() ?: return@register
+            val consumers: VertexConsumerProvider = context.consumers() ?: return@register
+            val cam = context.camera().pos
 
-            matrices.push()
-            val camPos = camera.pos
-            matrices.translate(-camPos.x, -camPos.y, -camPos.z)
+            val range = MathHelper.floor(cfg.tripwireRange.coerceIn(4f, 48f).toDouble()).coerceAtLeast(1)
+            val p = BlockPos.ofFloored(player.pos)
+            val minX = p.x - range; val maxX = p.x + range
+            val minY = (p.y - range).coerceAtLeast(world.bottomY)
+            val maxY = (p.y + range).coerceAtMost(world.bottomY + world.height - 1)
+            val minZ = p.z - range; val maxZ = p.z + range
 
-            // color (neon magenta)
-            val r = 1.0f; val g = 0.2f; val b = 1.0f; val a = 0.95f
+            // Loud color
+            val r = 1.0f; val g = 1.0f; val b = 0.15f
+            val outlineA = 1.0f
+            val fillA = 0.55f
 
-            val lineConsumer = consumers.getBuffer(RenderLayer.getLines())
-
-            val minX = px - range
-            val maxX = px + range
-            val minY = (py - range).coerceAtLeast(world.bottomY)
-            val maxY = (py + range).coerceAtMost(world.bottomY + world.height - 1)
-            val minZ = pz - range
-            val maxZ = pz + range
-
+            val targets = ArrayList<Box>()
             for (x in minX..maxX) for (y in minY..maxY) for (z in minZ..maxZ) {
                 val pos = BlockPos(x, y, z)
                 if (!world.getBlockState(pos).isOf(Blocks.TRIPWIRE)) continue
-
-                // Slightly inflated Y so the string pops
-                val cam = camera.pos
-                // Slightly inflated so it pops
-                val box = Box.of(pos.toCenterPos(), 1.01, 0.11, 1.01)
-                drawBoxOutline(cam.x, cam.y, cam.z, lineConsumer, box, r, g, b, a)
-
-                // ---- Optional x-ray pass ----
-                // matrices.push()
-                // matrices.translate(0.0, 0.0, 0.0005) // tiny view offset
-                // drawBoxOutline(matrices, lineConsumer, box, r, g, b, a)
-                // matrices.pop()
+                val c = pos.toCenterPos().add(0.0, -0.46, 0.0) // tripwire string ~0.04 above floor
+                targets += Box.of(c, 1.00, 0.22, 1.00).expand(0.002)
             }
+            if (targets.isEmpty()) return@register
 
-            matrices.pop()
-        })
-    }
+            val lineBuf = consumers.getBuffer(RenderLayer.getLines())
+            val fillBuf = consumers.getBuffer(RenderLayer.getDebugFilledBox()) // translucent quads
 
-    private fun end(vc: net.minecraft.client.render.VertexConsumer) {
-        // Compatible with mappings that use either next() or endVertex()
-        val cls = vc.javaClass
-        val mNext = cls.methods.firstOrNull { it.name == "next" && it.parameterCount == 0 }
-        if (mNext != null) {
-            mNext.invoke(vc); return
+            matrices.push()
+            try {
+                for (box in targets) {
+                    val x1 = (box.minX - cam.x).toFloat()
+                    val y1 = (box.minY - cam.y).toFloat()
+                    val z1 = (box.minZ - cam.z).toFloat()
+                    val x2 = (box.maxX - cam.x).toFloat()
+                    val y2 = (box.maxY - cam.y).toFloat()
+                    val z2 = (box.maxZ - cam.z).toFloat()
+
+                    // 1) Translucent fill (very visible)
+                    VertexRendering.drawFilledBox(matrices, fillBuf, x1, y1, z1, x2, y2, z2, r, g, b, fillA)
+
+                    // 2) Solid outline (normal depth)
+                    VertexRendering.drawBox(matrices, lineBuf, x1.toDouble(), y1.toDouble(), z1.toDouble(),
+                        x2.toDouble(), y2.toDouble(), z2.toDouble(), r, g, b, outlineA)
+
+                    // 3) ESP outline (through walls) via DebugRenderer (no manual GL state needed)
+                    DebugRenderer.drawBox(
+                        matrices, consumers,
+                        x1.toDouble(), y1.toDouble(), z1.toDouble(),
+                        x2.toDouble(), y2.toDouble(), z2.toDouble(),
+                        r, g, b, 0.9f
+                    )
+                }
+            } finally {
+                matrices.pop()
+            }
         }
-        val mEnd = cls.methods.firstOrNull { it.name == "endVertex" && it.parameterCount == 0 }
-        if (mEnd != null) {
-            mEnd.invoke(vc); return
-        }
-        // If neither exists (very unlikely), we silently continue.
     }
-
-    private fun drawBoxOutline(
-        cameraX: Double, cameraY: Double, cameraZ: Double,
-        vc: net.minecraft.client.render.VertexConsumer,
-        box: net.minecraft.util.math.Box,
-        rf: Float, gf: Float, bf: Float, af: Float
-    ) {
-        // Pack RGBA -> 0xAARRGGBB (common in these mappings)
-        val r = (rf * 255f).toInt().coerceIn(0, 255)
-        val g = (gf * 255f).toInt().coerceIn(0, 255)
-        val b = (bf * 255f).toInt().coerceIn(0, 255)
-        val a = (af * 255f).toInt().coerceIn(0, 255)
-        val color = (a shl 24) or (r shl 16) or (g shl 8) or b
-
-        // Fullbright-ish light (safe for lines), overlay = 0; UV unused; normals arbitrary for lines
-        val u = 0f; val v = 0f
-        val overlay = 0
-        val light = 0x00F000F0.toInt()
-        val nx = 0f; val ny = 1f; val nz = 0f
-
-        // camera-relative corners (so we don't need matrix transforms)
-        val x1 = (box.minX - cameraX).toFloat()
-        val y1 = (box.minY - cameraY).toFloat()
-        val z1 = (box.minZ - cameraZ).toFloat()
-        val x2 = (box.maxX - cameraX).toFloat()
-        val y2 = (box.maxY - cameraY).toFloat()
-        val z2 = (box.maxZ - cameraZ).toFloat()
-
-        fun seg(xa: Float, ya: Float, za: Float, xb: Float, yb: Float, zb: Float) {
-            vc.vertex(xa, ya, za, color, u, v, overlay, light, nx, ny, nz)
-            vc.vertex(xb, yb, zb, color, u, v, overlay, light, nx, ny, nz)
-        }
-
-        // bottom
-        seg(x1,y1,z1, x2,y1,z1); seg(x2,y1,z1, x2,y1,z2)
-        seg(x2,y1,z2, x1,y1,z2); seg(x1,y1,z2, x1,y1,z1)
-        // top
-        seg(x1,y2,z1, x2,y2,z1); seg(x2,y2,z1, x2,y2,z2)
-        seg(x2,y2,z2, x1,y2,z2); seg(x1,y2,z2, x1,y2,z1)
-        // pillars
-        seg(x1,y1,z1, x1,y2,z1); seg(x2,y1,z1, x2,y2,z1)
-        seg(x2,y1,z2, x2,y2,z2); seg(x1,y1,z2, x1,y2,z2)
-    }
-
-
 }

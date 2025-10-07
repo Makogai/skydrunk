@@ -11,7 +11,7 @@ object McManaged {
     fun init() {
         val cfgDir = FabricLoader.getInstance().configDir.toFile()
         val file = File(cfgDir, "skydrunk-moul.json")
-        managed = ManagedConfig.create(file, McRoot::class.java) { /* config builder tweaks if needed */ }
+        managed = ManagedConfig.create(file, McRoot::class.java) { /* no-op */ }
         managed.injectIntoInstance()
     }
 

@@ -27,6 +27,7 @@ import net.minecraft.client.option.KeyBinding
 import net.minecraft.client.util.InputUtil
 import net.minecraft.text.Text
 import org.lwjgl.glfw.GLFW
+import me.makogai.skydrunk.update.UpdateChecker
 
 
 class SkydrunkClient : ClientModInitializer {
@@ -37,6 +38,7 @@ class SkydrunkClient : ClientModInitializer {
         // init config + bazaar + ui
         ConfigOpener.init()
         McManaged.init()
+        UpdateChecker.init()
         BazaarPriceFetcher.start()
         InventoryResetButton.init()
 
@@ -95,6 +97,17 @@ class SkydrunkClient : ClientModInitializer {
                         .then(literal("drag").executes { DragScreen.open(); 1 })
                         .then(literal("reset").executes { ShardSession.reset(); 1 })
                         .then(literal("addshard").executes { ShardSession.addShards(1); 1 })
+                        .then(literal("update")
+                            .then(literal("check").executes {
+                                me.makogai.skydrunk.update.UpdateChecker.checkNow(announceUpToDate = true)
+                                1
+                            })
+                        )
+                        .then(literal("vmedit").executes {
+                            me.makogai.skydrunk.viewmodel.ViewmodelEditor.open()
+                            1
+                        })
+
 
                         .then(literal("overlay")
                             .then(literal("on").executes {
