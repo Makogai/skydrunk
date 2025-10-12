@@ -7,47 +7,25 @@ import io.github.notenoughupdates.moulconfig.annotations.ConfigEditorDropdown
 import io.github.notenoughupdates.moulconfig.annotations.ConfigEditorInfoText
 import io.github.notenoughupdates.moulconfig.annotations.ConfigEditorSlider
 import io.github.notenoughupdates.moulconfig.annotations.ConfigOption
+import me.makogai.skydrunk.config.PriceSource
+
+/* ---------- GENERAL ---------- */
 
 class GeneralCat : Config() {
     @ConfigOption(name = "Enable Skydrunk", desc = "Master toggle for all Skydrunk features.")
-    @ConfigEditorBoolean
-    var uiEnabled: Boolean = true
+    @ConfigEditorBoolean var uiEnabled: Boolean = true
 
     @ConfigOption(name = "Check for updates on startup", desc = "Looks up latest GitHub release on game start.")
-    @ConfigEditorBoolean
-    var autoCheckUpdates: Boolean = true
+    @ConfigEditorBoolean var autoCheckUpdates: Boolean = true
 }
 
-class HuntingCat : Config() {
-    @ConfigOption(name = "Enable Shard Tracking", desc = "Track shard drops and rates.")
-    @ConfigEditorBoolean
-    var enabled: Boolean = true
+/* ---------- HUNTING / OVERLAY ---------- */
 
-    @ConfigOption(name = "Track Glacite Walkers", desc = "Count Glacite Walker shard drops.")
-    @ConfigEditorBoolean
-    var trackGlacite: Boolean = true
+enum class ElapsedFormat { HH_MM, MIN_SEC }
 
-    @ConfigOption(name = "Auto-reset on /warp", desc = "Reset session when you warp.")
-    @ConfigEditorBoolean
-    var autoResetOnWarp: Boolean = false
-
-    @ConfigOption(name = "Price Source", desc = "SELL = what you earn, BUY = what you pay.")
-    @ConfigEditorDropdown(values = ["BAZAAR_INSTA_SELL", "BAZAAR_SELL_ORDER"])
-    var priceSource: PriceSource = PriceSource.BAZAAR_INSTA_SELL
-
-    @ConfigOption(name = "Coins per shard (fallback)", desc = "Used if Bazaar fetch fails or auto-update is off.")
-    @ConfigEditorSlider(minValue = 0f, maxValue = 5_000_000f, minStep = 1000f)
-    var coinsPerShard: Double = 150_000.0
-
-    @ConfigOption(name = "Auto-update price from Bazaar", desc = "Refresh price every minute and apply it.")
-    @ConfigEditorBoolean
-    var autoUpdatePrice: Boolean = true
-}
-
-class OverlayCat : Config() {
-    @ConfigOption(name = "Show Overlay", desc = "Toggle HUD box visibility.")
-    @ConfigEditorBoolean
-    var showOverlay: Boolean = true
+class OverlaySubCat : Config() {
+    @ConfigOption(name = "Show Tracker", desc = "Toggle hunting tracker visibility.")
+    @ConfigEditorBoolean var showOverlay: Boolean = true
 
     @ConfigOption(name = "Opacity", desc = "0.10 - 1.00")
     @ConfigEditorSlider(minValue = 0.10f, maxValue = 1.00f, minStep = 0.05f)
@@ -64,33 +42,69 @@ class OverlayCat : Config() {
     @ConfigOption(name = "Position Y", desc = "HUD Y")
     @ConfigEditorSlider(minValue = 0f, maxValue = 10000f, minStep = 1f)
     var posY: Float = 16f
+
+    @ConfigOption(
+        name = "Elapsed format",
+        desc = "How to show elapsed session time."
+    )
+    @ConfigEditorDropdown(values = ["HH_MM", "MIN_SEC"])
+    var elapsedFormat: ElapsedFormat = ElapsedFormat.MIN_SEC
+
+    @ConfigOption(
+        name = "Hide after inactivity (minutes)",
+        desc = "How long with no new shards before action triggers. 0 = never."
+    )
+    @ConfigEditorSlider(minValue = 0f, maxValue = 60f, minStep = 1f)
+    var idleHideMinutes: Float = 5f
+
+    @ConfigOption(
+        name = "Pause instead of hide",
+        desc = "If enabled, session pauses after inactivity instead of hiding/clearing."
+    )
+    @ConfigEditorBoolean
+    var pauseOnInactive: Boolean = false
 }
 
-class HollowsCat : Config() {
-    @ConfigOption(name = "Show owned crystals", desc = "Show the crystals you own.")
-    @ConfigEditorBoolean
-    var showOwned: Boolean = true
 
-    @ConfigOption(name = "Highlight missing", desc = "Highlight ones you still need.")
-    @ConfigEditorBoolean
-    var highlightMissing: Boolean = true
+class HuntingCat : Config() {
+    @ConfigOption(name = "Enable Shard Tracking", desc = "Track shard drops and rates.")
+    @ConfigEditorBoolean var enabled: Boolean = true
+
+    @ConfigOption(name = "Auto-update price from Bazaar", desc = "Refresh price snapshot every minute while a shard is active.")
+    @ConfigEditorBoolean var autoUpdatePrice: Boolean = true
+
+    @Category(name = "Overlay", desc = "HUD position, scale, opacity, idle behavior.")
+    val overlay = OverlaySubCat()
+
+    // Fallback price if Bazaar fetch fails (still shown alongside other value)
+    @ConfigOption(name = "Fallback price per shard", desc = "Used when Bazaar snapshot isn't available.")
+    @ConfigEditorSlider(minValue = 0f, maxValue = 5_000_000f, minStep = 1000f)
+    var coinsPerShardFallback: Double = 150_000.0
+
+    /* ---------- COMPAT FOR OLD CODE VERSION - TODO: FIX THIS ---------- */
+    // Old code reads hunting.coinsPerShard – delegate to the fallback.
+    var coinsPerShard: Double
+        get() = coinsPerShardFallback
+        set(value) { coinsPerShardFallback = value }
+
+    // Old code reads hunting.priceSource in a `when` – keep it around.
+    var priceSource: PriceSource = PriceSource.BAZAAR_INSTA_SELL
 }
+
+/* ---------- DUNGEONS (Tripwire) ---------- */
 
 class DungeonsCat : Config() {
     @ConfigOption(
         name = "Highlight Tripwire",
         desc = "Render a neon box around tripwire strings."
     )
-    @ConfigEditorBoolean
-    var highlightTripwire: Boolean = true
+    @ConfigEditorBoolean var highlightTripwire: Boolean = true
 
     @ConfigOption(
         name = "Tripwire ESP (IN DEVELOPMENT)",
         desc = "Draw tripwire outlines through walls (may cost a little FPS)."
     )
-    @ConfigEditorBoolean
-    var tripwireEsp: Boolean = false
-
+    @ConfigEditorBoolean var tripwireEsp: Boolean = false
 
     @ConfigOption(
         name = "Tripwire Range",
@@ -100,36 +114,31 @@ class DungeonsCat : Config() {
     var tripwireRange: Float = 20f
 }
 
+/* ---------- HOME ---------- */
+
 class MainCat : Config() {
-    @ConfigOption(
-        name = "Skydrunk — Status",
-        desc = "Read-only information panel"
-    )
+    @ConfigOption(name = "Skydrunk — Status", desc = "Read-only information panel")
     @ConfigEditorInfoText(infoTitle = "Welcome to Skydrunk")
     var infoTop: String =
         """
-        ✅ Shard Tracking live (Hunting > Shard Tracking)
-        • Auto price updates, overlay, per-session stats
-        • Use /sd update check to check for new versions
+        ✅ Shard Tracking live (Hunting)
+        • Auto price updates (if enabled), overlay, per-session stats
+        • Use /sd drag to move the tracker
         """.trimIndent()
 
-    @ConfigOption(
-        name = "About",
-        desc = "Support & quick tips"
-    )
+    @ConfigOption(name = "About", desc = "Support & quick tips")
     @ConfigEditorInfoText
     var infoBottom: String =
-        "For mod support contact §b@makogai§r on Discord. Tip: move/scale the tracker via Overlay."
+        "For mod support contact §b@makogai§r on Discord. Tip: move/scale the tracker via Hunting → Overlay."
 }
+
+/* ---------- VIEWMODEL ---------- */
 
 class ViewmodelCat : Config() {
     @ConfigOption(name = "Enable", desc = "Enable custom viewmodel transforms")
     @ConfigEditorBoolean var enabled = true
 
-    @ConfigOption(
-        name = "Open Big Editor",
-        desc = "Full-screen editor with wide numeric fields. Run /sd vmedit."
-    )
+    @ConfigOption(name = "Open Big Editor", desc = "Run /sd vmedit for a full-screen editor.")
     @ConfigEditorInfoText
     var openEditorHint: String = "Run §b/sd vmedit§r to open the big Viewmodel editor."
 
@@ -170,7 +179,7 @@ class ViewmodelCat : Config() {
     @ConfigEditorSlider(minValue = -180f, maxValue = 180f, minStep = 1f) var rotZ = 0f
 }
 
-/* --------- ROOT --------- */
+/* ---------- ROOT ---------- */
 
 class McRoot : Config() {
     @ConfigOption(name = "Bazaar ID Overrides", desc = "Map shard name to custom bazaar id")
@@ -182,18 +191,12 @@ class McRoot : Config() {
     @Category(name = "General", desc = "Global settings.")
     val general = GeneralCat()
 
-    @Category(name = "Viewmodel", desc = "Main-hand position, scale, animation speed.")
-    val viewmodel = ViewmodelCat()
-
-    @Category(name = "Hunting Shards", desc = "Shard tracking and pricing.")
+    @Category(name = "Hunting", desc = "Shard tracking, prices, and overlay.")
     val hunting = HuntingCat()
-
-    @Category(name = "Overlay", desc = "HUD position, scale, opacity.")
-    val overlay = OverlayCat()
-
-    @Category(name = "Crystal Hollows", desc = "QoL for hollows.")
-    val hollows = HollowsCat()
 
     @Category(name = "Dungeons", desc = "Dungeon QoL features")
     val dungeons = DungeonsCat()
+
+    @Category(name = "Viewmodel", desc = "Main-hand position, scale, animation speed.")
+    val viewmodel = ViewmodelCat()
 }
