@@ -89,6 +89,57 @@ class HuntingCat : Config() {
 
     // Old code reads hunting.priceSource in a `when` – keep it around.
     var priceSource: PriceSource = PriceSource.BAZAAR_INSTA_SELL
+
+    /* ---------- MILESTONE ---------- */
+    class MilestoneCat : Config() {
+        @ConfigOption(name = "Enable milestone", desc = "Enable money milestone overlay and tracking.")
+        @ConfigEditorBoolean var enabled: Boolean = false
+
+        @ConfigOption(name = "Target amount (coins)", desc = "How many coins until milestone is reached (e.g. 60000000 = 60,000,000)")
+        var targetAmount: Double = 0.0
+
+        @ConfigOption(name = "Accumulated amount", desc = "Accumulated coins toward milestone (persists across sessions).")
+        var accumulated: Double = 0.0
+
+        @ConfigOption(name = "Accumulated shards", desc = "Accumulated shards towards milestone (persists across sessions).")
+        var shardsAccumulated: Long = 0L
+
+        @ConfigOption(name = "Notified (sell order)", desc = "Internal: whether user was notified for sell-order milestone (auto-cleared on reset).")
+        var notifiedSellOrder: Boolean = false
+
+        @ConfigOption(name = "Notified (insta-sell)", desc = "Internal: whether user was notified for insta-sell milestone (auto-cleared on reset).")
+        var notifiedInstaSell: Boolean = false
+
+        @ConfigOption(name = "Show milestone overlay", desc = "Display the milestone HUD on screen.")
+        @ConfigEditorBoolean var showOverlay: Boolean = true
+
+        @ConfigOption(name = "Milestone opacity", desc = "0.10 - 1.00")
+        @ConfigEditorSlider(minValue = 0.10f, maxValue = 1.00f, minStep = 0.05f)
+        var opacity: Float = 0.95f
+
+        @ConfigOption(name = "Milestone scale", desc = "0.5 - 2.0")
+        @ConfigEditorSlider(minValue = 0.5f, maxValue = 2.0f, minStep = 0.05f)
+        var scale: Float = 1.0f
+
+        @ConfigOption(name = "Position X", desc = "HUD X for milestone")
+        @ConfigEditorSlider(minValue = 0f, maxValue = 10000f, minStep = 1f)
+        var posX: Float = 200f
+
+        @ConfigOption(name = "Position Y", desc = "HUD Y for milestone")
+        @ConfigEditorSlider(minValue = 0f, maxValue = 10000f, minStep = 1f)
+        var posY: Float = 16f
+
+        @ConfigOption(name = "Open Milestone Popup", desc = "Toggle to open the Milestone popup. Will reset automatically.")
+        @ConfigEditorBoolean
+        var openPopup: Boolean = false
+
+        @ConfigOption(name = "Show Insta-Sell Progress", desc = "If enabled the milestone HUD shows a second bar for insta-sell; otherwise only sell-order is shown.")
+        @ConfigEditorBoolean
+        var showInstaSell: Boolean = false
+    }
+
+    @Category(name = "Milestone", desc = "Money milestone overlay and settings.")
+    val milestone = MilestoneCat()
 }
 
 /* ---------- DUNGEONS (Tripwire) ---------- */
@@ -193,6 +244,10 @@ class McRoot : Config() {
 
     @Category(name = "Hunting", desc = "Shard tracking, prices, and overlay.")
     val hunting = HuntingCat()
+
+    // Expose the same milestone as a top-level category so moulconfig displays a Milestone tab
+    @Category(name = "Milestone", desc = "Money milestone overlay and settings.")
+    val milestone = hunting.milestone
 
     @Category(name = "Dungeons", desc = "Dungeon QoL features")
     val dungeons = DungeonsCat()

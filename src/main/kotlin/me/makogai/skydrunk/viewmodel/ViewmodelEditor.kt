@@ -8,7 +8,7 @@ import me.shedaniel.clothconfig2.api.ConfigCategory
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder
 
 object ViewmodelEditor {
-    fun open() {
+    fun createScreen(): net.minecraft.client.gui.screen.Screen {
         val mc = MinecraftClient.getInstance()
         val vm = McManaged.data().viewmodel
 
@@ -40,7 +40,11 @@ object ViewmodelEditor {
         ) = eb.startFloatField(Text.of(label), value).apply {
             min?.let { setMin(it) }
             max?.let { setMax(it) }
-            setSaveConsumer(onSave)
+            // apply the value immediately and persist so changes are live
+            setSaveConsumer { v ->
+                onSave(v)
+                try { me.makogai.skydrunk.config.McManaged.save() } catch (_: Throwable) {}
+            }
         }.build()
 
         // Offsets
@@ -64,6 +68,13 @@ object ViewmodelEditor {
         cat.addEntry(floatField("Rot Y (deg)", vm.rotY, -180f, 180f) { vm.rotY = it })
         cat.addEntry(floatField("Rot Z (deg)", vm.rotZ, -180f, 180f) { vm.rotZ = it })
 
-        mc.setScreen(builder.build())
+        // Persist when the builder is closed as well
+        builder.setSavingRunnable { try { me.makogai.skydrunk.config.McManaged.save() } catch (_: Throwable) {} }
+        return builder.build()
+    }
+
+    fun open() {
+        val mc = MinecraftClient.getInstance()
+        mc.setScreen(createScreen())
     }
 }

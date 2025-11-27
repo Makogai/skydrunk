@@ -150,6 +150,92 @@ object ShardHud {
         }
 
         context.matrices.pop()
+
+        // ---------- Milestone HUD ----------
+        val msCfg = cfgRoot.hunting.milestone
+        if (msCfg.enabled && msCfg.showOverlay && msCfg.targetAmount > 0.0) {
+            try {
+                val scaleM = msCfg.scale.coerceIn(0.5f, 2.0f)
+                val mx = msCfg.posX.roundToInt()
+                val my = msCfg.posY.roundToInt()
+                val alphaM = (msCfg.opacity * 255f).roundToInt().coerceAtLeast(30)
+
+                val widthM = 240
+                val heightM = if (msCfg.showInstaSell) 78 else 54
+                val bgM = (alphaM shl 24) or 0x0E0E0E
+                val border = (alphaM shl 24) or 0x2A2A2A
+                val fillBg = (alphaM shl 24) or 0x1A1A1A
+                val fillInsta = (alphaM shl 24) or 0x1F8B4C
+                val fillOrder = (alphaM shl 24) or 0xFFB04C
+                val fillAccent = (alphaM shl 24) or 0xFFD8A3
+
+                context.matrices.push()
+                context.matrices.scale(scaleM, scaleM, 1f)
+
+                // panel background + border
+                context.fill(mx, my, mx + widthM, my + heightM, bgM)
+                context.fill(mx, my, mx + widthM, my + 2, border)
+                context.fill(mx, my + heightM - 2, mx + widthM, my + heightM, border)
+
+                // header
+                val title = "§bMilestone: §f${fmt(msCfg.targetAmount.roundToLong())}"
+                context.drawText(font, Text.of(title), mx + 8, my + 6, 0xFFFFFF, false)
+
+                // compute coin totals from shardsAccumulated
+                val shardsAccum = msCfg.shardsAccumulated.coerceAtLeast(0L)
+                val target = msCfg.targetAmount.roundToLong().coerceAtLeast(1L)
+                val coinsSO = shardsAccum * sellOrder
+                val coinsIS = shardsAccum * instaSell
+
+                // layout: SO text -> SO bar -> optional IS text -> optional IS bar
+                val textY = my + 20
+                val soBarY = textY + 12
+                val isTextY = soBarY + 14
+                val isBarY = isTextY + 12
+
+                // SO text
+                context.drawText(font, Text.of("§7${fmt(coinsSO)} §f/ §6${fmt(target)} §7(SO)"), mx + 8, textY, 0xFFFFFF, false)
+
+                // draw SO bar
+                val barX = mx + 8
+                val barW = widthM - 16
+                val barH = 8
+                val orderValue = coinsSO
+                val pctOrder = if (target <= 0L) 0 else ((orderValue * 100L) / target).toInt()
+                val fillWOrder = ((barW * pctOrder) / 100).coerceAtMost(barW)
+                context.fill(barX, soBarY, barX + barW, soBarY + barH, fillBg)
+                if (fillWOrder > 0) {
+                    context.fill(barX, soBarY, barX + fillWOrder, soBarY + barH, fillOrder)
+                    context.fill(barX, soBarY, barX + (fillWOrder / 4).coerceAtLeast(1), soBarY + barH, fillAccent)
+                }
+                context.drawText(font, Text.of("${pctOrder}% SO"), mx + widthM - 56, soBarY, 0xFFFFFF, false)
+
+                if (msCfg.showInstaSell) {
+                    // IS text and bar
+                    context.drawText(font, Text.of("§7${fmt(coinsIS)} §f/ §6${fmt(target)} §7(IS)"), mx + 8, isTextY, 0xFFFFFF, false)
+                    val instaValue = coinsIS
+                    val pctInsta = if (target <= 0L) 0 else ((instaValue * 100L) / target).toInt()
+                    val fillWInsta = ((barW * pctInsta) / 100).coerceAtMost(barW)
+                    context.fill(barX, isBarY, barX + barW, isBarY + barH, fillBg)
+                    if (fillWInsta > 0) {
+                        context.fill(barX, isBarY, barX + fillWInsta, isBarY + barH, fillInsta)
+                        context.fill(barX, isBarY, barX + (fillWInsta / 4).coerceAtLeast(1), isBarY + barH, fillAccent)
+                    }
+                    context.drawText(font, Text.of("${pctInsta}% IS"), mx + widthM - 56, isBarY, 0xFFFFFF, false)
+                }
+
+                // ETA (based on insta cph if available)
+                val avgCph = max(cphInsta, 1L)
+                val remaining = (target - coinsIS).coerceAtLeast(0L)
+                val etaMs = if (avgCph <= 0L) Long.MAX_VALUE else (remaining * 3600000L / avgCph)
+                val etaTxt = if (etaMs == Long.MAX_VALUE) "—" else formatElapsed(etaMs, hudCfg.elapsedFormat)
+                context.drawText(font, Text.of("ETA: §f$etaTxt"), mx + widthM - 96, my + 6, 0xFFFFFF, false)
+
+                context.matrices.pop()
+            } catch (e: Exception) {
+                // ignore render errors
+            }
+        }
     }
 
     /** For DragScreen: returns [x, y, width, height] of the on-screen rect (scaled). */
@@ -179,7 +265,7 @@ object ShardHud {
         }
         val lines = listOf(
             "Prices"    to "IS ${fmt(instaSell)} / SO ${fmt(sellOrder)}",
-            "Shards"    to "%,d".format(ShardSession.shardCount()),
+            "Shards"    to "${ShardSession.shardCount()}",
             "Elapsed"   to "…",
             "Shards/hr" to "…",
             "Coins/hr"  to "…",

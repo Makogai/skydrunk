@@ -27,7 +27,6 @@ public abstract class HeldItemRendererMixin {
                                MatrixStack matrices, VertexConsumerProvider providers, int light,
                                CallbackInfo ci) {
         if (hand == Hand.MAIN_HAND) {
-            System.out.println("[Skydrunk] HeldItemRenderer HEAD fired: " + stack);
         }
     }
 
@@ -97,17 +96,17 @@ public abstract class HeldItemRendererMixin {
         return Math.max(0f, Math.min(1f, v));
     }
 
-//    // Swing animation speed (visual): scale swingProgress parameter
-//    // Parameters of type float in this method are: tickDelta(0), pitch(1), swingProgress(2), equipProgress(3)
-//    @ModifyVariable(method = "renderFirstPersonItem", at = @At("HEAD"), argsOnly = true, ordinal = 2)
-//    private float skydrunk$scaleSwingParam(float swingProgress) {
-//        var vm = McManaged.INSTANCE.data().getViewmodel();
-//        float factor = Math.max(0.05f, vm.getSwingSpeed());
-//        if (factor == 1f) return swingProgress;
-//
-//        float out = swingProgress * factor; // >1 speeds up visually, <1 slows
-//        if (out > 1f) out = 1f;
-//        if (out < 0f) out = 0f;
-//        return out;
-//    }
+    // Swing animation speed (visual): scale swingProgress parameter
+    // Parameters of type float in this method are: tickDelta(0), pitch(1), swingProgress(2), equipProgress(3)
+    @ModifyVariable(method = "renderFirstPersonItem", at = @At("HEAD"), argsOnly = true, ordinal = 2)
+    private float skydrunk$scaleSwingParam(float swingProgress) {
+        var vm = McManaged.INSTANCE.data().getViewmodel();
+        float factor = Math.max(0.05f, vm.getSwingSpeed());
+        if (factor == 1f) return swingProgress;
+
+        float out = swingProgress * factor; // >1 speeds up visually, <1 slows
+        if (out > 1f) out = 1f;
+        if (out < 0f) out = 0f;
+        return out;
+    }
 }

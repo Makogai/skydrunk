@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "me.makogai"
-version = "0.1.12"
+version = "0.1.13"
 
 repositories {
     maven("https://maven.fabricmc.net/")

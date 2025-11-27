@@ -29,11 +29,22 @@ import net.minecraft.text.Text
 import org.lwjgl.glfw.GLFW
 import com.mojang.brigadier.arguments.IntegerArgumentType.*
 import com.mojang.brigadier.arguments.IntegerArgumentType
+import kotlin.math.abs
 
 
 class SkydrunkClient : ClientModInitializer {
 
     private lateinit var openConfigKey: KeyBinding
+
+    private fun fmtLong(n: Long): String {
+        val absN = abs(n.toDouble())
+        return when {
+            absN >= 1_000_000_000 -> String.format("%.1fb", n / 1_000_000_000.0)
+            absN >= 1_000_000     -> String.format("%.1fm", n / 1_000_000.0)
+            absN >= 1_000         -> String.format("%.1fk", n / 1_000.0)
+            else -> "%,d".format(n)
+        }
+    }
 
     override fun onInitializeClient() {
         // init config + bazaar + ui
@@ -71,6 +82,25 @@ class SkydrunkClient : ClientModInitializer {
             while (openConfigKey.wasPressed()) {
                 client.execute { McManaged.open() }
             }
+            // Attempt to open milestone popup if requested; the opener will retry a few times
+            me.makogai.skydrunk.hud.MilestonePopupOpener.tick(client)
+            // Attempt to open viewmodel editor if requested
+            me.makogai.skydrunk.viewmodel.ViewmodelEditorOpener.tick(client)
+            // Attempt to open dragger GUI if requested
+            me.makogai.skydrunk.hud.DragScreenOpener.tick(client)
+
+            // If user toggled the in-config 'Open Milestone Popup', consume it here and request the opener
+            try {
+                val ms = McManaged.data().hunting.milestone
+                if (ms.openPopup) {
+                    ms.openPopup = false
+                    try { McManaged.save() } catch (_: Throwable) {}
+                    me.makogai.skydrunk.hud.MilestonePopupOpener.request()
+                }
+            } catch (_: Throwable) {}
+
+            // Autosave managed config fallback if anything changed (runs ~once per second)
+            try { McManaged.autoSaveTick() } catch (_: Throwable) {}
         })
 
         // Client commands
@@ -94,7 +124,16 @@ class SkydrunkClient : ClientModInitializer {
                     literal(name)
                         .executes { openConfigCmd() }
                         .then(literal("open").executes { openConfigCmd() })
-                        .then(literal("drag").executes { DragScreen.open(); 1 })
+                        .then(literal("drag").executes { ctx ->
+                            me.makogai.skydrunk.hud.DragScreenOpener.request()
+                            ctx.source.client.inGameHud.chatHud.addMessage(Text.of("§b[Skydrunk] Opening dragger…"))
+                            1
+                        })
+                        .then(literal("gui").executes { ctx ->
+                            me.makogai.skydrunk.hud.DragScreenOpener.request()
+                            ctx.source.client.inGameHud.chatHud.addMessage(Text.of("§b[Skydrunk] Opening dragger…"))
+                            1
+                        })
                         .then(literal("reset").executes { ShardSession.reset(); 1 })
                         .then(literal("addshard").executes { ShardSession.addShards(1); 1 })
                         .then(literal("update")
@@ -103,9 +142,10 @@ class SkydrunkClient : ClientModInitializer {
                                 1
                             })
                         )
-                        .then(literal("vmedit").executes {
-                            val mc = MinecraftClient.getInstance()
-                            mc.execute { me.makogai.skydrunk.viewmodel.ViewmodelEditor.open() }
+                        .then(literal("vmedit").executes { ctx ->
+                            // Open the managed MoulConfig editor so users get the real sliders and live updates.
+                            me.makogai.skydrunk.client.ConfigOpener.requestOpen(2)
+                            ctx.source.client.inGameHud.chatHud.addMessage(Text.of("§b[Skydrunk] Opening Viewmodel settings in MoulConfig…"))
                             1
                         })
                         .then(literal("overlay")
@@ -153,9 +193,7 @@ class SkydrunkClient : ClientModInitializer {
                             MinecraftClient.getInstance().inGameHud.chatHud.addMessage(Text.of("§b[Skydrunk] Area: $s"))
                             1
                         })
-                        .then(literal("locraw").executes {
-                            LocrawDetector.debugRequestNow(); 1
-                        })
+                        .then(literal("locraw").executes { LocrawDetector.debugRequestNow(); 1 })
                         .then(literal("shard")
                             .then(literal("set").then(
                                 argument("name", greedyString()).executes { ctx ->
@@ -167,6 +205,49 @@ class SkydrunkClient : ClientModInitializer {
                                     1
                                 }
                             ))
+                        )
+                        .then(literal("milestone")
+                            .then(literal("set").then(
+                                argument("amount", IntegerArgumentType.integer(1)).executes { ctx ->
+                                    val amt = IntegerArgumentType.getInteger(ctx, "amount")
+                                    val cfgNow = McManaged.data()
+                                    // start a fresh milestone: clear accumulators + notifications
+                                    cfgNow.hunting.milestone.accumulated = 0.0
+                                    cfgNow.hunting.milestone.shardsAccumulated = 0L
+                                    cfgNow.hunting.milestone.notifiedSellOrder = false
+                                    cfgNow.hunting.milestone.notifiedInstaSell = false
+                                    cfgNow.hunting.milestone.targetAmount = amt.toDouble()
+                                    cfgNow.hunting.milestone.enabled = amt > 0
+                                    try { McManaged.save() } catch (_: Throwable) {}
+                                    ctx.source.client.inGameHud.chatHud.addMessage(Text.of("§b[Skydrunk] Milestone set to §f${fmtLong(amt.toLong())}§b."))
+                                    1
+                                }
+                            ))
+                            .then(literal("reset").executes {
+                                val cfgNow = McManaged.data()
+                                cfgNow.hunting.milestone.accumulated = 0.0
+                                cfgNow.hunting.milestone.shardsAccumulated = 0L
+                                cfgNow.hunting.milestone.targetAmount = 0.0
+                                cfgNow.hunting.milestone.enabled = false
+                                cfgNow.hunting.milestone.notifiedSellOrder = false
+                                cfgNow.hunting.milestone.notifiedInstaSell = false
+                                try { McManaged.save() } catch (_: Throwable) {}
+                                MinecraftClient.getInstance().inGameHud.chatHud.addMessage(Text.of("§b[Skydrunk] Milestone reset."))
+                                1
+                            })
+                            .then(literal("open").executes {
+                                MinecraftClient.getInstance().inGameHud.chatHud.addMessage(Text.of("§b[Skydrunk] Opening milestone popup…"))
+                                me.makogai.skydrunk.hud.MilestonePopupOpener.request()
+                                1
+                            })
+                            .executes {
+                                // Fallback: show current milestone status in chat
+                                val cfgNow = McManaged.data()
+                                val tgt = cfgNow.hunting.milestone.targetAmount.toLong()
+                                val acc = cfgNow.hunting.milestone.accumulated.toLong()
+                                MinecraftClient.getInstance().inGameHud.chatHud.addMessage(Text.of("§b[Skydrunk] Milestone: §f${fmtLong(acc)} §7/ §6${fmtLong(tgt)}"))
+                                1
+                            }
                         )
                 )
             }
